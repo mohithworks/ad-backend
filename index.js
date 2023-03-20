@@ -22,8 +22,6 @@ app.get("/video/request", async function (req, res, next) {
 
  console.log(campid)
 
- console.log(email)
-
  sbSelectDefault('campaigns', 'source', 'id', campid).then(({error, data}) => { 
   if(error) {
     console.log(error);
