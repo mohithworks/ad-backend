@@ -79,7 +79,7 @@ app.get("/video/request", async function (req, res, next) {
           });
 
         } else {
-          throw new Error('You have exceeded the limit of viewing this ad');
+          res.status(400).send('You have exceeded the limit of viewing this ad');
         }
     
       }
@@ -102,7 +102,7 @@ app.get("/video/finish", async function (req, res, next) {
   sbSelectDefault(campid, 'starttime, maxtime, coins_earned', 'userid', userid).then(({error, data}) => { 
     console.log('1')
    if(error) {
-     console.log(error);
+    throw new Error(error.message);
    }
    if(data) {
      var coins = data[0].coins_earned;
@@ -142,7 +142,7 @@ app.get("/video/finish", async function (req, res, next) {
       console.log('User has watched the video for 1 minute');
       sbSelectDefault('campaigns', 'coins, interactions', 'id', campid).then(({error, data}) => { 
         if(error) {
-          console.log(error);
+          throw new Error(error.message);
         }
         if(data) {
           var updatedInteractions = data[0].interactions + 1;
@@ -158,13 +158,13 @@ app.get("/video/finish", async function (req, res, next) {
           //Updating coins in campaigns table
           sbUpdate('campaigns', updateData, 'id', campid).then(({error, data}) => {
             if(error) {
-              console.log(error);
+              throw new Error(error.message);
             }
             if(data) {
               //Updating coins earned in campaign id table
               sbUpdate(campid, updateData2, 'userid', userid).then(({error, data}) => {
                 if(error) {
-                  console.log(error);
+                  throw new Error(error.message);
                 }
                 if(data) {
                   res.send('Congratulations you have earned 20 coins')
