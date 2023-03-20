@@ -24,7 +24,7 @@ app.get("/video/request", async function (req, res, next) {
 
  sbSelectDefault('campaigns', 'source', 'id', campid).then(({error, data}) => { 
   if(error) {
-    console.log(error);
+    throw new Error(error.message);
   }
   if(data) {
     var videoSource = data[0].source;
@@ -49,14 +49,14 @@ app.get("/video/request", async function (req, res, next) {
     //Checking user eligibility
     sbSelectDefault(campid, 'userid, coins_earned, maxattempts', 'userid', userid).then(({error, data}) => { 
       if(error) {
-        console.log(error);
+        throw new Error(error.message);
       }
       if(data.length === 0) {
         //Inserting record into campaign id table
         console.log('Inserting');
         sbInsert(campid, insertData).then(({error, data}) => {
           if(error) {
-            console.log(error);
+            throw new Error(error.message);
           }
           if(data) {
             res.send(videoSource)
@@ -71,7 +71,7 @@ app.get("/video/request", async function (req, res, next) {
           insertData[0]['maxattempts'] = maxattempts - 1;
           sbUpdate(campid, insertData, 'userid', userid).then(({error, data}) => {
             if(error) {
-              console.log(error);
+              throw new Error(error.message);
             }
             if(data) {
               res.send(videoSource)
@@ -79,7 +79,7 @@ app.get("/video/request", async function (req, res, next) {
           });
 
         } else {
-          res.send('You have exceeded the limit of viewing this ad')
+          throw new Error('You have exceeded the limit of viewing this ad');
         }
     
       }
