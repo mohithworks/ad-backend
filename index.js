@@ -3,6 +3,7 @@ import cors from "cors";
 import * as dotenv from 'dotenv';
 import { sbUpdate, sbInsert, sbSelectDefault } from "./services/apiService.js";
 import _ from 'lodash';
+import addTime from "add-time";
 dotenv.config();
 
 // Create a single supabase client for interacting with your database
@@ -15,6 +16,34 @@ app.use(cors());
 app.get("/", function (req, res, next) {
   res.send("Started");
 });
+
+async function addDate(dateS) {
+  const dateString = dateS;
+  const [day, month, year, time, period] = dateString.split(/\/|, | /);
+  const [hour, minute, second] = time.split(":");
+  const isPM = period.toLowerCase() === 'pm';
+  const date = new Date(year, month - 1, day, isPM ? parseInt(hour) + 12 : hour, minute, second);
+  date.setMinutes(date.getMinutes() + 3);
+  const options = {
+    year: 'numeric',
+    month: 'numeric',
+    day: 'numeric',
+    hour: 'numeric',
+    minute: 'numeric',
+    second: 'numeric',
+    hour12: true,
+    timeZone: 'Asia/Kolkata'
+  };
+  const formattedDate = date.toLocaleString('en-IN', options);
+  return formattedDate;
+}
+
+async function addDate2(dateS) {
+  var dateString = new Date(dateS);
+  dateString.setMinutes(dateString.getMinutes() + 2);
+
+  return dateString;
+}
 
 app.get("/video/request", async function (req, res, next) {
  const userid = req.query.userid;
@@ -92,44 +121,42 @@ app.get("/video/request", async function (req, res, next) {
 app.get("/video/request2", async function (req, res, next) {
  const userid = req.query.userid;
  const campid = req.query.campid.toString();
+ const refid = req.query.refid;
 
  console.log(campid)
 
- sbSelectDefault('campaigns', 'source', 'id', campid).then(({error, data}) => { 
+ sbSelectDefault('campaigns', 'source', 'id', campid).then(async ({error, data}) => { 
   if(error) {
-    throw new Error(error.message);
+    res.status(400).send('There was an error. Please try again after sometime')
   }
   if(data) {
     var videoSource = data[0].source;
     //Get video starting time
-    var startTime = new Date().toLocaleString(); 
-
-    //Spliting time to get maxTime
-    var time = startTime.split(' ');
-    var date = time[0];
-    var timeSplit = time[1].split(':');
-
+    var startTime = new Date(); 
+    console.log(startTime)
     //Getting maxTime
-    var maxMinute = (parseInt(timeSplit[1]) + 3).toString();
-    var maxTime = date + ' ' + timeSplit[0] + ':' + maxMinute + ':' + timeSplit[2];
+    var maxTime = await addDate2(startTime);
+
+    console.log(maxTime)
 
     var insertData = [{
       userid: userid,
       starttime: startTime,
       maxtime: maxTime,
+      refid: refid,
     }]
 
     //Checking user eligibility
     sbSelectDefault(campid, 'userid, maxattempts', 'userid', userid).then(({error, data}) => { 
       if(error) {
-        throw new Error(error.message);
+        res.status(400).send('There was an error. Please try again after sometime')
       }
       if(data.length === 0) {
         //Inserting record into campaign id table
         console.log('Inserting');
         sbInsert(campid, insertData).then(({error, data}) => {
           if(error) {
-            throw new Error(error.message);
+            res.status(400).send('There was an error. Please try again after sometime')
           }
           if(data) {
             res.send(videoSource)
@@ -144,7 +171,7 @@ app.get("/video/request2", async function (req, res, next) {
           insertData[0]['maxattempts'] = maxattempts - 1;
           sbUpdate(campid, insertData, 'userid', userid).then(({error, data}) => {
             if(error) {
-              throw new Error(error.message);
+              res.status(400).send('There was an error. Please try again after sometime')
             }
             if(data) {
               res.send(videoSource)
@@ -258,6 +285,11 @@ app.get("/video/finish", async function (req, res, next) {
  
 });
 
+app.get("/date", function (req, res, next) {
+  const inputDateString = "30/4/2023, 6:58:52 pm";
+  const date = new Date(inputDateString);
+  console.log(date)
+})
 
 app.get("/video/finish2", async function (req, res, next) {
   const userid = req.query.userid;
@@ -268,44 +300,26 @@ app.get("/video/finish2", async function (req, res, next) {
   sbSelectDefault(campid, 'starttime, maxtime', 'userid', userid).then(({error, data}) => { 
     console.log('1')
    if(error) {
-    throw new Error(error.message);
-   }
+    res.status(400).send('There was an error. Please try again after sometime')
+  }
    if(data) {
      //Get video starting time
-     var startTime = data[0].starttime; 
+    var startDate = new Date(data[0].starttime); 
+    startDate.setMinutes(startDate.getMinutes() + 1);
+    console.log(startDate)
 
-     //Spliting startTime
-     var timeS = startTime.split(' ');
-     var timeSplitS = timeS[1].split(':');
+    const currentDate = new Date();
+    console.log(currentDate)
 
-     var videoMin = parseInt(timeSplitS[1]) + 1;//54
- 
-     //Getting maxTime
-     var maxTime = data[0].maxtime;
-
-     //Spliting maxTime
-     var timeM = maxTime.split(' ');
-     var dateM = timeM[0];
-     var timeSplitM = timeM[1].split(':');
-
-     var videoMax = parseInt(timeSplitM[1]);//57
-
-     var endTime = new Date().toLocaleString();
-
-     //Spliting endTime
-     var timeE = endTime.split(' ');
-     var dateE = timeE[0];
-     var timeSplitE = timeE[1].split(':');
-
-     var videoCurrent = parseInt(timeSplitE[1]);
-     console.log('S: ' + videoMin + ' E: ' + videoMax + ' C: ' + videoCurrent)
+    const endDate = new Date(data[0].maxtime);
+    console.log(endDate)
 
     //Checking if user has watched the video for 3 minutes
-    if(dateE === dateM && timeSplitE[0] === timeSplitM[0] && _.inRange(videoCurrent, videoMin, videoMax)) { 
+    if(_.inRange(currentDate.getTime(), startDate.getTime(), endDate.getTime())) { 
       console.log('User has watched the video for 1 minute');
       sbSelectDefault('campaigns', 'interactions', 'id', campid).then(({error, data}) => { 
         if(error) {
-          throw new Error(error.message);
+          res.status(400).send('There was an error. Please try again after sometime')
         }
         if(data) {
           var updatedInteractions = data[0].interactions + 1;
@@ -318,13 +332,13 @@ app.get("/video/finish2", async function (req, res, next) {
           //Updating coins in campaigns table
           sbUpdate('campaigns', updateData, 'id', campid).then(({error, data}) => {
             if(error) {
-              throw new Error(error.message);
+              res.status(400).send('There was an error. Please try again after sometime')
             }
             if(data) {
               //Updating coins earned in campaign id table
               sbUpdate('users', updateData2, 'id', userid).then(({error, data}) => {
                 if(error) {
-                  throw new Error(error.message);
+                  res.status(400).send('There was an error. Please try again after sometime')
                 }
                 if(data) {
                   res.send('We are thankfull for watching the video!!')
@@ -336,7 +350,7 @@ app.get("/video/finish2", async function (req, res, next) {
      })
       
     }else {
-      res.send('It was found that you haven\'t watched the video for 1 minute.')
+      res.status(400).send('It was found that you haven\'t watched the video for 1 minute.')
     }
  
      
